@@ -5,25 +5,22 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"fmt"
+
+	"github.com/adrianosela/ca/src/template"
 )
 
 // CertificateIssuer represents an entity capable of
 // issuing (DER encoded) signed x509 certificates.
 type CertificateIssuer interface {
+	IssuerCertificate() ([]byte, error)
 	IssueCertificate(*x509.CertificateRequest) ([]byte, error)
-}
-
-// CertificateTemplateBuilder represents an entity capable of building
-// an x509 certificate template based off of an x509 certificate request
-type CertificateTemplateBuilder interface {
-	BuildTemplate(*x509.CertificateRequest) (*x509.Certificate, error)
 }
 
 // issuer is an internal-only implementation of the CertificateIssuer interface.
 type issuer struct {
 	issuerCert      *x509.Certificate
 	signer          crypto.Signer
-	templateBuilder CertificateTemplateBuilder
+	templateBuilder template.CertificateTemplateBuilder
 }
 
 // ensure issuer implements CertificateIssuer.
@@ -33,13 +30,18 @@ var _ CertificateIssuer = (*issuer)(nil)
 func New(
 	issuerCert *x509.Certificate,
 	signer crypto.Signer,
-	templateBuilder CertificateTemplateBuilder,
+	templateBuilder template.CertificateTemplateBuilder,
 ) CertificateIssuer {
 	return &issuer{
 		issuerCert:      issuerCert,
 		signer:          signer,
 		templateBuilder: templateBuilder,
 	}
+}
+
+// IssuerCertificate returns the (DER encoded) issuer x509 certificate.
+func (i *issuer) IssuerCertificate() ([]byte, error) {
+	return i.issuerCert.Raw, nil
 }
 
 // IssueCertificate issues a (DER encoded) signed x509 certificate.

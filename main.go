@@ -5,13 +5,12 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"log"
-	"math/big"
-	"math/rand"
 	"net/http"
 	"time"
 
 	"github.com/adrianosela/ca/src/issuer"
 	"github.com/adrianosela/ca/src/service"
+	"github.com/adrianosela/ca/src/template"
 	"github.com/adrianosela/kmssigner"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
@@ -20,56 +19,30 @@ import (
 const (
 	kmsKeyId             = "alias/my-ca-certificate-key"
 	issuerCertificatePEM = `-----BEGIN CERTIFICATE-----
-MIIDYTCCAkmgAwIBAgIIYUPs0/pgUuowDQYJKoZIhvcNAQELBQAwPzELMAkGA1UE
+MIIDYTCCAkmgAwIBAgIINgIDyGR/gtEwDQYJKoZIhvcNAQELBQAwPzELMAkGA1UE
 BhMCQ0ExGjAYBgNVBAoTEUFkcmlhbm8gU2VsYSBJbmMuMRQwEgYDVQQDEwthZHJp
-YW5vc2VsYTAeFw0yMzEwMDgxOTAzNThaFw0zMzEwMDUxOTA4NThaMD8xCzAJBgNV
+YW5vc2VsYTAeFw0yMzEwMTAxODQzMjVaFw0zMzEwMDcxODQ4MjVaMD8xCzAJBgNV
 BAYTAkNBMRowGAYDVQQKExFBZHJpYW5vIFNlbGEgSW5jLjEUMBIGA1UEAxMLYWRy
-aWFub3NlbGEwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDC+BDzFcr3
-LRM5ITUlqGLXvYWNczxI8lavxTgU5TQPPoS+h6Up99yJzNWzJcjwwDEJdNa0Iffq
-ygLYj6Zvbye5hNIXnOKh/4+meFRBAzazgaOq5w6Inl5T0ct1yd9p+oecXZPK27lv
-C3BhIx4xUnhrhoH8DkmoiJbyzl52SUWyetu4qMnYA/vVTmvudWuMCYErMAwGAJ7z
-IENCi7+DIF/mRNowrDm75yMNNOpWdvbUSF+o9/V83QUPQspkFDP9A8xnAWxJGls5
-WsQnDoK2K1k/lpy175sqbgv+rmF4MDYS9zbGyLNaPGJWRrYXQ5lWme03+3WzAEya
-5azmjbAP0bEBAgMBAAGjYTBfMA4GA1UdDwEB/wQEAwIChDAdBgNVHSUEFjAUBggr
-BgEFBQcDAgYIKwYBBQUHAwEwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU7TnZ
-AzVQYDFfDFTRS4eyJAkrnYIwDQYJKoZIhvcNAQELBQADggEBAA1OD+j+PpWFDFER
-tGWMGm6YUJ6w3ZVPOeEaN2YLWgG70l/H2JDO0DrG7R30eYWqCryedoivZF7tUFvJ
-V65DQOhyzHcyHnjDayNHOMzk0QXGKh0VITZzA65oRDUERCl9jx14PiLVBAkB6GWK
-liBN8mU/YhcSpu5T/MBnqdH4y1RDiMdVnCf+yadMFQ4U2uHfz0/TQZMOq/c0M6yM
-6sGTT94NdzVJpAWEI8g3oJAbc2niEzfm89OPrNJ+WXGt6iQ/LthJWEwJdbLFdo7j
-FkK4pPQDZzL7eEsFb9rc+puXja0cp+anDw/dNe4ZZ6+dumviW6BOoekmqTPzaCow
-7oTKU0E=
+aWFub3NlbGEwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCqsDA4LGhE
+fjsTiD+4OY7aPPy4FbBb/yAUo3g+X5iUmEpelpIIxPjBjSPk4on6yXyRE4kzrshK
+OleAthHXZD/JtUdkL9cBM8EibGhi8yRLpTOEWeUUs1vFieTDk4e8JjYp8gNnlxkJ
+F9wJJoIN+0spIopv91cEjLLIqpVxYx5eaM7ozhYVWfC3OSczzR1b9Kl7pHjDoiyP
+A/BM3Buso7cI/+vcnsExPh5oKp0pMBpBDONJuluAOYso2Xn45mdTxy2xmlVIBVeI
+JwlexRzVIQhvFmhPKEf5bDrLOEGMtestdWT7OdO3URgE784ASE1pVoB56OehEqtR
+0iquH291K1G3AgMBAAGjYTBfMA4GA1UdDwEB/wQEAwIChDAdBgNVHSUEFjAUBggr
+BgEFBQcDAgYIKwYBBQUHAwEwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUO43u
+O6t0qWa6KOEiu2wo2bP6JkMwDQYJKoZIhvcNAQELBQADggEBAA6GxMHxX5O4b5qN
+NzhD8tY845lTr/46a2BdpvkzJcD/5lmvAidXEUnViAwpBNMdxDqkl+X9YLO5qoex
+feXbf2zlA2mLjYe6ZPUV+YKKidIV4cO7A8lA7nPzm7YyZUXk50ohjpLx5SsFdkha
+UHDjsgXRc0e506JuQhEfwQBkK9dC4O/rUTttC3pgmkAxWXumxzqEpUumUy/VmyHu
+aCif7n5lfVM1rU0bb4+4Y9uCfYVR2CTchDvap4i/E+iNbmb4/XzrWX9Oz3iDORr2
+JUdeyYWZMtwX2tezyQS894oemgHR1Up6mTxnoF12uncUjs2GetGucC0O5wQZAxYx
+dxaYKUk=
 -----END CERTIFICATE-----`
 )
 
-type templateBuilder struct {
-	clockSkew time.Duration
-	lifespan  time.Duration
-}
-
-func (t *templateBuilder) BuildTemplate(csr *x509.CertificateRequest) (*x509.Certificate, error) {
-	return &x509.Certificate{
-		SerialNumber: big.NewInt(rand.Int63()),
-		NotBefore:    time.Now().Add(-1 * t.clockSkew),
-		NotAfter:     time.Now().Add(t.lifespan),
-		KeyUsage:     x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-
-		// fields from CSR, tweak as needed
-		Subject:     csr.Subject,
-		IPAddresses: csr.IPAddresses,
-		DNSNames:    csr.DNSNames,
-	}, nil
-}
-
 func main() {
 	ctx := context.Background()
-
-	issuerCertificateDER, _ := pem.Decode([]byte(issuerCertificatePEM))
-	issuerCertificate, err := x509.ParseCertificate(issuerCertificateDER.Bytes)
-	if err != nil {
-		log.Fatalf("failed to parse x509 issuer certificate from PEM: %v", err)
-	}
 
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
@@ -81,13 +54,16 @@ func main() {
 		log.Fatalf("failed to initialize KMS signer: %v", err)
 	}
 
+	issuerCertificateDER, _ := pem.Decode([]byte(issuerCertificatePEM))
+	issuerCertificate, err := x509.ParseCertificate(issuerCertificateDER.Bytes)
+	if err != nil {
+		log.Fatalf("failed to parse x509 issuer certificate from PEM: %v", err)
+	}
+
 	svc := service.NewService(issuer.New(
 		issuerCertificate,
 		signer,
-		&templateBuilder{
-			clockSkew: time.Minute * 5,
-			lifespan:  time.Minute * 5,
-		},
+		template.New(time.Minute*5, time.Minute*5),
 	))
 
 	if err = http.ListenAndServe(":80", svc.HTTPHandler()); err != nil {

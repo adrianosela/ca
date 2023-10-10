@@ -2,6 +2,7 @@ package service
 
 import (
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 
@@ -12,7 +13,7 @@ type certificateSigningRequestBody struct {
 	ASN1Data []byte `json:"asn1data"`
 }
 
-func (s *Service) certificateSigningRequestHandler(c *gin.Context) {
+func (s *Service) signHandler(c *gin.Context) {
 	var payload *certificateSigningRequestBody
 	if err := c.BindJSON(&payload); err != nil {
 		c.AbortWithStatusJSON(
@@ -38,6 +39,12 @@ func (s *Service) certificateSigningRequestHandler(c *gin.Context) {
 			http.StatusInternalServerError,
 			gin.H{"error": fmt.Sprintf("failed to issue certificate: %v", err)},
 		)
+		return
+	}
+
+	if c.Query("format") == "pem" {
+		cert = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert})
+		c.AbortWithStatusJSON(http.StatusOK, gin.H{"certificate": string(cert)})
 		return
 	}
 
