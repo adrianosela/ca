@@ -18,6 +18,7 @@ type certificateSigningRequestBody struct {
 }
 
 func (s *Service) signHandler(c *gin.Context) {
+	parseReqStart := time.Now()
 	var payload *certificateSigningRequestBody
 	if err := c.BindJSON(&payload); err != nil {
 		c.AbortWithStatusJSON(
@@ -26,7 +27,9 @@ func (s *Service) signHandler(c *gin.Context) {
 		)
 		return
 	}
+	parseReqDuration := time.Now().Sub(parseReqStart)
 
+	parseCSRStart := time.Now()
 	csr, err := x509.ParseCertificateRequest(payload.ASN1Data)
 	if err != nil {
 		c.AbortWithStatusJSON(
@@ -35,8 +38,10 @@ func (s *Service) signHandler(c *gin.Context) {
 		)
 		return
 	}
+	parseCSRDuration := time.Now().Sub(parseCSRStart)
 
-	cert, certDER, err := s.iss.IssueCertificate(csr)
+	issueCertStart := time.Now()
+	certDER, err := s.iss.IssueCertificate(csr)
 	if err != nil {
 		// FIXME: log and do not return error
 		c.AbortWithStatusJSON(
@@ -45,8 +50,22 @@ func (s *Service) signHandler(c *gin.Context) {
 		)
 		return
 	}
+	issueCertDuration := time.Now().Sub(issueCertStart)
 
-	event, err := buildAuditEvent(c, csr, cert, certDER)
+	certPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certDER,
+	})
+
+	event, err := buildAuditEvent(
+		c,
+		csr,
+		certDER,
+		certPEM,
+		parseReqDuration.Milliseconds(),
+		parseCSRDuration.Milliseconds(),
+		issueCertDuration.Milliseconds(),
+	)
 	if err != nil {
 		// FIXME: log and do not return error
 		c.AbortWithStatusJSON(
@@ -66,7 +85,6 @@ func (s *Service) signHandler(c *gin.Context) {
 	}
 
 	if c.Query("format") == "pem" {
-		certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
 		c.AbortWithStatusJSON(http.StatusOK, gin.H{"certificate": string(certPEM)})
 		return
 	}
@@ -78,8 +96,11 @@ func (s *Service) signHandler(c *gin.Context) {
 func buildAuditEvent(
 	c *gin.Context,
 	csr *x509.CertificateRequest,
-	cert *x509.Certificate,
 	certDER []byte,
+	certPEM []byte,
+	parseReqDuration int64,
+	parseCSRDuration int64,
+	issueCertDuration int64,
 ) (*auditor.Event, error) {
 	publicKeyDER, err := x509.MarshalPKIXPublicKey(csr.PublicKey)
 	if err != nil {
@@ -89,9 +110,13 @@ func buildAuditEvent(
 		Type:  "PUBLIC KEY",
 		Bytes: publicKeyDER,
 	})
-
 	hash := sha256.Sum256(publicKeyDER)
 	publicKeyFingerprint := hex.EncodeToString(hash[:])
+
+	cert, err := x509.ParseCertificate(certDER)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse issued certificate: %v", err)
+	}
 
 	ipAddresses := []string{}
 	for _, ip := range cert.IPAddresses {
@@ -125,6 +150,7 @@ func buildAuditEvent(
 		},
 		IssuedCertificate: auditor.IssuedCertificate{
 			SerialNumber:   cert.SerialNumber.String(),
+			Issuer:         cert.Issuer.String(),
 			Subject:        cert.Subject.String(),
 			NotBefore:      cert.NotBefore.String(),
 			NotAfter:       cert.NotAfter.String(),
@@ -132,7 +158,12 @@ func buildAuditEvent(
 			DNSNames:       dnsNames,
 			EmailAddresses: emails,
 			URIs:           uris,
-			Raw:            string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})),
+			Raw:            string(certPEM),
+		},
+		HTTPRequest: auditor.HTTPRequest{
+			ParseRequestBodyDuration: parseReqDuration,
+			ParseCSRDuration:         parseCSRDuration,
+			IssueCertificateDuration: issueCertDuration,
 		},
 	}, nil
 }

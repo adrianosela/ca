@@ -67,7 +67,7 @@ func main() {
 			signer,
 			template.New(time.Minute*5, time.Minute*5),
 		),
-		auditor.New(),
+		auditor.NewCloudWatch(cfg, "ca-logs", "my-log-stream"),
 	)
 
 	if err = http.ListenAndServe(":80", svc.HTTPHandler()); err != nil {

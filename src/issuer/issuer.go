@@ -13,7 +13,7 @@ import (
 // issuing (DER encoded) signed x509 certificates.
 type CertificateIssuer interface {
 	IssuerCertificate() ([]byte, error)
-	IssueCertificate(*x509.CertificateRequest) (*x509.Certificate, []byte, error)
+	IssueCertificate(*x509.CertificateRequest) ([]byte, error)
 }
 
 // issuer is an internal-only implementation of the CertificateIssuer interface.
@@ -45,13 +45,13 @@ func (i *issuer) IssuerCertificate() ([]byte, error) {
 }
 
 // IssueCertificate issues a (DER encoded) signed x509 certificate.
-func (i *issuer) IssueCertificate(csr *x509.CertificateRequest) (*x509.Certificate, []byte, error) {
+func (i *issuer) IssueCertificate(csr *x509.CertificateRequest) ([]byte, error) {
 	if err := csr.CheckSignature(); err != nil {
-		return nil, nil, fmt.Errorf("failed to verify signature on CSR: %v", err)
+		return nil, fmt.Errorf("failed to verify signature on CSR: %v", err)
 	}
 	template, err := i.templateBuilder.BuildTemplate(csr)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to build x509 certificate template from CSR: %v", err)
+		return nil, fmt.Errorf("failed to build x509 certificate template from CSR: %v", err)
 	}
 	derEncodedCert, err := x509.CreateCertificate(
 		rand.Reader,
@@ -61,7 +61,7 @@ func (i *issuer) IssueCertificate(csr *x509.CertificateRequest) (*x509.Certifica
 		i.signer,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create x509 certificate: %v", err)
+		return nil, fmt.Errorf("failed to create x509 certificate: %v", err)
 	}
-	return template, derEncodedCert, nil
+	return derEncodedCert, nil
 }

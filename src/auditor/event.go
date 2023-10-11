@@ -18,6 +18,7 @@ type CertificateSigningRequest struct {
 // audit event describing the issued certificate.
 type IssuedCertificate struct {
 	SerialNumber   string   `json:"serial_number"`
+	Issuer         string   `json:"issuer"`
 	Subject        string   `json:"subject"`
 	NotBefore      string   `json:"not_before"`
 	NotAfter       string   `json:"not_after"`
@@ -28,10 +29,19 @@ type IssuedCertificate struct {
 	Raw            string   `json:"raw"`
 }
 
+// HTTPRequest represents the portion of an
+// audit event describing the http request.
+type HTTPRequest struct {
+	ParseRequestBodyDuration int64 `json:"parse_request_body_duration_ms"`
+	ParseCSRDuration         int64 `json:"parse_csr_duration_ms"`
+	IssueCertificateDuration int64 `json:"issue_certificate_duration_ms"`
+}
+
 // Event represents an audit event.
 type Event struct {
 	Timestamp                 int64                     `json:"timestamp"`
 	Client                    Client                    `json:"client"`
 	CertificateSigningRequest CertificateSigningRequest `json:"csr"`
 	IssuedCertificate         IssuedCertificate         `json:"issued_certificate"`
+	HTTPRequest               HTTPRequest               `json:"http_request"`
 }
