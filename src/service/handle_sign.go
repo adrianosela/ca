@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/adrianosela/ca/src/auditor"
 	"github.com/gin-gonic/gin"
@@ -98,13 +99,13 @@ func buildAuditEvent(
 	}
 
 	emails := []string{}
-	for _, email := range cert.EmailAddresses {
-		emails = append(emails, email)
+	if cert.EmailAddresses != nil {
+		emails = cert.EmailAddresses
 	}
 
 	dnsNames := []string{}
-	for _, dnsName := range cert.DNSNames {
-		dnsNames = append(dnsNames, dnsName)
+	if cert.DNSNames != nil {
+		dnsNames = cert.DNSNames
 	}
 
 	uris := []string{}
@@ -113,6 +114,7 @@ func buildAuditEvent(
 	}
 
 	return &auditor.Event{
+		Timestamp: time.Now().UnixMilli(),
 		Client: auditor.Client{
 			IPAddress: c.ClientIP(),
 			UserAgent: c.Request.UserAgent(),
@@ -123,7 +125,6 @@ func buildAuditEvent(
 		},
 		IssuedCertificate: auditor.IssuedCertificate{
 			SerialNumber:   cert.SerialNumber.String(),
-			Issuer:         cert.Issuer.String(),
 			Subject:        cert.Subject.String(),
 			NotBefore:      cert.NotBefore.String(),
 			NotAfter:       cert.NotAfter.String(),

@@ -4,13 +4,14 @@ go 1.21.0
 
 require (
 	github.com/adrianosela/kmssigner v0.0.0-20231008190728-eae2173c9836
+	github.com/aws/aws-sdk-go-v2 v1.21.1
 	github.com/aws/aws-sdk-go-v2/config v1.18.44
+	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.24.1
 	github.com/aws/aws-sdk-go-v2/service/kms v1.24.6
 	github.com/gin-gonic/gin v1.9.1
 )
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.21.1 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.42 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.12 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.42 // indirect
