@@ -15,30 +15,30 @@ const (
 	defaultPutLogEventsTimeout = time.Second * 5
 )
 
-// cwAuditor is an AWS CloudWatch
+// CloudWatchAuditor is an AWS CloudWatch
 // implementation of the Auditor interface.
-type cwAuditor struct {
+type CloudWatchAuditor struct {
 	cwClient            *cloudwatchlogs.Client
 	logGroup            string
 	logStream           string
 	putLogEventsTimeout time.Duration
 }
 
-// ensure cwAuditor implements Auditor.
-var _ Auditor = (*cwAuditor)(nil)
+// ensure CloudWatchAuditor implements Auditor.
+var _ Auditor = (*CloudWatchAuditor)(nil)
 
 // CloudWatchOption represents a configuration
 // option for the AWS CloudWatch based Auditor.
-type CloudWatchOption func(*cwAuditor)
+type CloudWatchOption func(*CloudWatchAuditor)
 
-// NewCloudWatch returns an AWS CloudWatch implementation of the Auditor interface.
-func NewCloudWatch(
+// NewCloudWatchAuditor returns an AWS CloudWatch implementation of the Auditor interface.
+func NewCloudWatchAuditor(
 	cfg aws.Config,
 	logGroup,
 	logStream string,
 	opts ...CloudWatchOption,
-) Auditor {
-	a := &cwAuditor{
+) *CloudWatchAuditor {
+	a := &CloudWatchAuditor{
 		cwClient:            cloudwatchlogs.NewFromConfig(cfg),
 		logGroup:            logGroup,
 		logStream:           logStream,
@@ -51,14 +51,14 @@ func NewCloudWatch(
 }
 
 // Audit handles an audit event.
-func (a *cwAuditor) Audit(e *Event) error {
-	ctx, cancel := context.WithTimeout(context.Background(), a.putLogEventsTimeout)
-	defer cancel()
-
+func (a *CloudWatchAuditor) Audit(e *Event) error {
 	jsonData, err := json.Marshal(e)
 	if err != nil {
 		return fmt.Errorf("failed to json-encode audit event: %v", err)
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), a.putLogEventsTimeout)
+	defer cancel()
 
 	_, err = a.cwClient.PutLogEvents(
 		ctx,
@@ -74,7 +74,7 @@ func (a *cwAuditor) Audit(e *Event) error {
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to put log events: %v", err)
+		return fmt.Errorf("failed to emit audit event via the AWS CloudWatch Logs API: %v", err)
 	}
 
 	return nil

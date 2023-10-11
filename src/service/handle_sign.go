@@ -11,6 +11,7 @@ import (
 
 	"github.com/adrianosela/ca/src/auditor"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type certificateSigningRequestBody struct {
@@ -139,6 +140,7 @@ func buildAuditEvent(
 	}
 
 	return &auditor.Event{
+		EventID:   uuid.New().String(),
 		Timestamp: time.Now().UnixMilli(),
 		Client: auditor.Client{
 			IPAddress: c.ClientIP(),

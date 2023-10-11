@@ -61,13 +61,19 @@ func main() {
 		log.Fatalf("failed to parse x509 issuer certificate from PEM: %v", err)
 	}
 
+	qldbAuditor, err := auditor.NewQLDBAuditor(cfg, "MyLedger", "AuditEvents")
+	if err != nil {
+		log.Fatalf("failed to initialize QLDB auditor: %v", err)
+	}
+	defer qldbAuditor.Close(ctx)
+
 	svc := service.NewService(
 		issuer.New(
 			issuerCertificate,
 			signer,
 			template.New(time.Minute*5, time.Minute*5),
 		),
-		auditor.NewCloudWatch(cfg, "ca-logs", "my-log-stream"),
+		qldbAuditor,
 	)
 
 	if err = http.ListenAndServe(":80", svc.HTTPHandler()); err != nil {
