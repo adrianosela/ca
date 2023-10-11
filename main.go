@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/adrianosela/ca/src/auditor"
 	"github.com/adrianosela/ca/src/issuer"
 	"github.com/adrianosela/ca/src/service"
 	"github.com/adrianosela/ca/src/template"
@@ -60,11 +61,14 @@ func main() {
 		log.Fatalf("failed to parse x509 issuer certificate from PEM: %v", err)
 	}
 
-	svc := service.NewService(issuer.New(
-		issuerCertificate,
-		signer,
-		template.New(time.Minute*5, time.Minute*5),
-	))
+	svc := service.NewService(
+		issuer.New(
+			issuerCertificate,
+			signer,
+			template.New(time.Minute*5, time.Minute*5),
+		),
+		auditor.New(),
+	)
 
 	if err = http.ListenAndServe(":80", svc.HTTPHandler()); err != nil {
 		log.Fatalf("failed to listen and serve http: %v", err)
